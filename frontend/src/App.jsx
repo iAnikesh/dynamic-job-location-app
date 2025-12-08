@@ -1,36 +1,70 @@
-// src/App.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext.jsx";
-import Header from "./components/Header.jsx";
-import Profile from "./pages/Profile.jsx";
-import JobSeekerDashboard from "./pages/JobSeekerDashboard.jsx";
-import RecruiterDashboard from "./pages/RecruiterDashboard.jsx";
-import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
-import Forgot from "./pages/Forgot.jsx";
-import Reset from "./pages/Reset.jsx";
-import RoleRoute from "./components/RoleRoute.jsx";
-import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import Home from "./pages/Home.jsx";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider } from './context/AuthContext';
+import Header from './components/Header';
+import ProtectedRoute from './components/ProtectedRoute';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import ProfileCompletion from './pages/ProfileCompletion';
+import './App.css';
 
-export default function App() {
+// Placeholder Home and Dashboard components
+const Home = () => (
+  <div className="container mx-auto px-4 py-8">
+    <h1 className="text-4xl font-bold text-center mb-8">Welcome to JobFlow</h1>
+    <p className="text-center text-gray-600 dark:text-gray-400">Find your dream job or the perfect candidate.</p>
+  </div>
+);
+
+const Dashboard = () => (
+  <div className="container mx-auto px-4 py-8">
+    <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+    <p className="text-gray-600 dark:text-gray-400">Welcome to your dashboard.</p>
+  </div>
+);
+
+function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Header />
-        <Routes>
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot" element={<Forgot />} />
-          <Route path="/reset" element={<Reset />} />
+    <Router>
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+          <Header />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><JobSeekerDashboard /></ProtectedRoute>} />
-          <Route path="/recruiter/dashboard" element={<RoleRoute role="recruiter"><RecruiterDashboard /></RoleRoute>} />
-          {/* add other routes as needed */}
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Protected Routes */}
+            <Route
+              path="/profile-completion"
+              element={
+                <ProtectedRoute>
+                  <ProfileCompletion />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Fallback */}
+            <Route path="*" element={<div className="p-8 text-center text-xl">404 - Page Not Found</div>} />
+          </Routes>
+          <Toaster position="top-right" />
+        </div>
+      </AuthProvider>
+    </Router>
   );
 }
+
+export default App;

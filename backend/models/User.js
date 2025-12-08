@@ -2,9 +2,14 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const UserSchema = new Schema({
-  name: {
+  username: {
     type: String,
     required: true,
+    unique: true,
+    trim: true
+  },
+  name: {
+    type: String,
     trim: true
   },
   email: {
@@ -32,11 +37,6 @@ const UserSchema = new Schema({
   bio: String,
 
   location: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point'
-    },
     coordinates: {
       type: [Number], // [longitude, latitude]
       index: '2dsphere'
@@ -49,24 +49,22 @@ const UserSchema = new Schema({
     lastUpdated: { type: Date, default: Date.now }
   },
 
-  selectedLocation: {
-    type: String,
-    default: ""
+  profileComplete: {
+    type: Boolean,
+    default: false
   },
 
-   // Job Seeker specific fields
+  // Job Seeker specific fields
   jobSeekerProfile: {
+    selectedLocation: {
+      type: String,
+      default: ""
+    },
     skills: [String],
     experienceYears: Number,
-    experienceLevel: {type: String, enum: ['entry', 'junior', 'mid', 'senior', 'expert'], default: 'entry'},
+    experienceLevel: { type: String, enum: ['entry', 'junior', 'mid', 'senior', 'expert'], default: 'entry' },
     industries: [String],
-    preferredJobTypes: {type: [String], enum: ['full-time', 'part-time', 'contract', 'remote', 'internship']},
-    preferredRadius: {
-      type: Number,
-      default: 25 // kilometers
-    },
-    expectedSalaryMin: Number,
-    expectedSalaryMax: Number,
+    preferredJobTypes: { type: [String], enum: ['full-time', 'part-time', 'contract', 'remote', 'internship'] },
     resume: {
       url: String,
       uploadedAt: Date
@@ -100,7 +98,6 @@ const UserSchema = new Schema({
   recruiterProfile: {
     companyName: String,
     companyWebsite: String,
-    companySize: {type: String, enum: ['1-10', '11-50', '51-200', '201-500', '501+']},
     companyDescription: String,
     companyLogo: String,
     industry: String,

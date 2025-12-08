@@ -1,20 +1,23 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* in src/index.css */
-.dropdown-item {
-  display: block;
-  padding: 0.5rem 1rem;
-  color: #1f2937; /* gray-800 */
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white;
+  }
+
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700;
+  }
 }
-.dropdown-item:hover { background: #f8fafc; }
-.nav-link { color: #475569; }
-.nav-link:hover { color: #0ea5e9; }
-
-/* subtle container background */
-body { background: #f8fafc; }
-
-/* utility classes for header */
-.nav-link { font-medium: 500; padding: .375rem .5rem; border-radius: .375rem; }
-.dropdown-item { display:block; padding:.5rem 1rem; color:#111827; }
