@@ -154,7 +154,7 @@ router.get("/logout", (req, res) => {
 router.get("/me", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
-      .select("-password -resetOtp -resetOtpExpiry -lastLogin -createdAt -updatedAt")
+      .select("-password -resetOtp -resetOtpExpiry -lastLogin -updatedAt")
       .lean();
 
     if (!user) {
@@ -174,7 +174,9 @@ router.get("/me", auth, async (req, res) => {
         skills: user.jobSeekerProfile?.skills,
         companyName: user.recruiterProfile?.companyName,
         recruiterProfile: user.recruiterProfile,
-        jobSeekerProfile: user.jobSeekerProfile
+        jobSeekerProfile: user.jobSeekerProfile,
+        createdAt: user.createdAt,
+        
       }
     });
   } catch (err) {

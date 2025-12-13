@@ -56,7 +56,7 @@ const Login = () => {
                                     value={formData.email}
                                     onChange={handleChange}
                                     className="input-field pl-10"
-                                    placeholder="name@example.com"
+                                    placeholder="yourmail@example.com"
                                 />
                             </div>
                         </div>
@@ -64,7 +64,7 @@ const Login = () => {
                         <div className="space-y-2">
                             <div className="flex justify-between items-center ml-1">
                                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-                                <Link to="/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                                <Link to="/forgot-password" className="text-xs font-medium text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
                                     Forgot password?
                                 </Link>
                             </div>
@@ -102,7 +102,7 @@ const Login = () => {
 
                     <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         Don't have an account?{' '}
-                        <Link to="/register" className="font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 transition-colors">
+                        <Link to="/register" className="font-semibold text-black hover:text-gray-700 dark:text-white dark:hover:text-gray-300 transition-colors">
                             Create Account
                         </Link>
                     </div>

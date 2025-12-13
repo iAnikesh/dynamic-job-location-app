@@ -107,6 +107,7 @@ const UserSchema = new Schema({
       address: String,
       city: String,
       state: String,
+      zipCode: String,
       country: String
     },
     businessRegistration: String, // Document URL

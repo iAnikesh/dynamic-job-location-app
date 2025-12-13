@@ -66,7 +66,6 @@ export const AuthProvider = ({ children }) => {
             toast.success('Logged out successfully');
         } catch (error) {
             console.error("Logout error", error);
-            // Force logout on client side even if server fails
             setUser(null);
         }
     };
