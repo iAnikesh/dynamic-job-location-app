@@ -8,20 +8,19 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import ProfileCompletion from './pages/ProfileCompletion';
+import Jobs from './pages/Jobs';
+import JobDetail from './pages/JobDetail';
+import PostJob from './pages/PostJob';
+import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
+
 import './App.css';
 
-// Placeholder Home and Dashboard components
+// Placeholder Home component
 const Home = () => (
   <div className="container mx-auto px-4 py-8">
     <h1 className="text-4xl font-bold text-center mb-8">Welcome to JobFlow</h1>
     <p className="text-center text-gray-600 dark:text-gray-400">Find your dream job or the perfect candidate.</p>
-  </div>
-);
-
-const Dashboard = () => (
-  <div className="container mx-auto px-4 py-8">
-    <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
-    <p className="text-gray-600 dark:text-gray-400">Welcome to your dashboard.</p>
   </div>
 );
 
@@ -38,21 +37,37 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/profile/:username" element={<Profile />} />
+
 
             {/* Protected Routes */}
-            <Route
-              path="/profile-completion"
+            <Route path="/profile-completion"
               element={
                 <ProtectedRoute>
                   <ProfileCompletion />
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/dashboard"
+            <Route path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/post-job"
+              element={
+                <ProtectedRoute>
+                  <PostJob />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/edit-job/:id"
+              element={
+                <ProtectedRoute>
+                  <PostJob />
                 </ProtectedRoute>
               }
             />

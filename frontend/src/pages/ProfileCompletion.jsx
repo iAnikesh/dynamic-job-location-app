@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { User, Phone, MapPin, Briefcase, Award, Building2, Globe, Users, FileText, GraduationCap, Calendar, Home, Link as LinkIcon, Image as ImageIcon, FileText as FileIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import GooglePlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-google-places-autocomplete';
 
 const ProfileCompletion = () => {
     const { user, updateUser } = useAuth();
@@ -11,41 +12,34 @@ const ProfileCompletion = () => {
     const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
-        phone: user?.phone || '',
-        avatar: null, // Changed to file object
-        // Address (Top level / Job Seeker)
+        name: '',
+        phone: '',
+        avatar: null,
         address: '',
         city: '',
         state: '',
         zip: '',
         country: '',
-
-        // Job Seeker Specific
         experienceLevel: 'entry',
         industry: '',
         skills: '',
         bio: '',
-        resume: null, // Changed to file object
+        resume: null,
         portfolio: '',
-        // Education (Single Entry as per backend)
         institution: '',
         degree: '',
         fieldOfStudy: '',
         educationStartDate: '',
         educationEndDate: '',
-        // Work Experience (Single Entry as per backend)
         company: '',
         position: '',
         workExperienceDescription: '',
         workExperienceStartDate: '',
         workExperienceEndDate: '',
-
-        // Recruiter Specific
         companyName: '',
         companyWebsite: '',
-        companySize: '',
         companyDescription: '',
-        companyLogo: null, // Changed to file object
+        companyLogo: null,
         recruiterIndustry: '',
         companyAddress: '',
         companyCity: '',
@@ -54,12 +48,136 @@ const ProfileCompletion = () => {
         companyCountry: ''
     });
 
+    useEffect(() => {
+        if (user) {
+            const jp = user.jobSeekerProfile || {};
+            const rp = user.recruiterProfile || {};
+            const userLoc = user.location || {};
+            const compLoc = rp.companyLocation || {};
+
+            // Education (Take first if exists)
+            const edu = jp.education && jp.education.length > 0 ? jp.education[0] : {};
+            // Experience (Take first if exists)
+            const exp = jp.workExperience && jp.workExperience.length > 0 ? jp.workExperience[0] : {};
+
+            setFormData(prev => ({
+                ...prev,
+                name: user.name || '',
+                phone: user.phone || '',
+
+                // Job Seeker Location
+                address: userLoc.address || '',
+                city: userLoc.city || '',
+                state: userLoc.state || '',
+                zip: userLoc.zipCode || '',
+                country: userLoc.country || '',
+
+                // Job Seeker Profile
+                experienceLevel: jp.experienceLevel || 'entry',
+                industry: jp.jobSeekerIndustry || (jp.industries && jp.industries[0]) || '',
+                skills: (jp.skills || []).join(', '),
+                bio: jp.bio || '',
+                portfolio: jp.portfolio || '',
+
+                // Education
+                institution: edu.institution || '',
+                degree: edu.degree || '',
+                fieldOfStudy: edu.fieldOfStudy || '',
+                educationStartDate: edu.startDate ? edu.startDate.split('T')[0] : '',
+                educationEndDate: edu.endDate ? edu.endDate.split('T')[0] : '',
+
+                // Experience
+                company: exp.company || '',
+                position: exp.position || '',
+                workExperienceDescription: exp.description || '',
+                workExperienceStartDate: exp.startDate ? exp.startDate.split('T')[0] : '',
+                workExperienceEndDate: exp.endDate ? exp.endDate.split('T')[0] : '',
+
+                // Recruiter Profile
+                companyName: rp.companyName || '',
+                companyWebsite: rp.companyWebsite || '',
+                companyDescription: rp.companyDescription || '',
+                recruiterIndustry: rp.industry || '',
+
+                // Recruiter Location
+                companyAddress: compLoc.address || '',
+                companyCity: compLoc.city || '',
+                companyState: compLoc.state || '',
+                companyZip: compLoc.zipCode || '',
+                companyCountry: compLoc.country || ''
+            }));
+        }
+    }, [user]);
+
+    const [userLocationValue, setUserLocationValue] = useState(null);
+    const [companyLocationValue, setCompanyLocationValue] = useState(null);
+
     const handleChange = (e) => {
         if (e.target.type === 'file') {
             setFormData({ ...formData, [e.target.name]: e.target.files[0] });
         } else {
             setFormData({ ...formData, [e.target.name]: e.target.value });
         }
+    };
+
+    const handleUserLocationSelect = (val) => {
+        setUserLocationValue(val);
+        geocodeByAddress(val.label)
+            .then(results => {
+                const result = results[0];
+                const addressMap = {};
+                result.address_components.forEach(component => {
+                    const types = component.types;
+                    if (types.includes('locality')) addressMap.city = component.long_name;
+                    if (types.includes('administrative_area_level_1')) addressMap.state = component.long_name;
+                    if (types.includes('country')) addressMap.country = component.long_name;
+                    if (types.includes('postal_code')) addressMap.zip = component.long_name;
+                });
+
+                getLatLng(result).then(({ lat, lng }) => {
+                    setFormData(prev => ({
+                        ...prev,
+                        address: result.formatted_address,
+                        city: addressMap.city || '',
+                        state: addressMap.state || '',
+                        country: addressMap.country || '',
+                        zip: addressMap.zip || '',
+                        latitude: lat,
+                        longitude: lng
+                    }));
+                });
+            })
+            .catch(error => console.error('Geocoding error:', error));
+    };
+
+    const handleCompanyLocationSelect = (val) => {
+        setCompanyLocationValue(val);
+        geocodeByAddress(val.label)
+            .then(results => {
+                const result = results[0];
+                const addressMap = {};
+                result.address_components.forEach(component => {
+                    const types = component.types;
+                    if (types.includes('locality')) addressMap.city = component.long_name;
+                    if (types.includes('administrative_area_level_1')) addressMap.state = component.long_name;
+                    if (types.includes('country')) addressMap.country = component.long_name;
+                    if (types.includes('postal_code')) addressMap.zip = component.long_name;
+                });
+
+                getLatLng(result).then(({ lat, lng }) => {
+                    setFormData(prev => ({
+                        ...prev,
+                        companyAddress: result.formatted_address,
+                        companyCity: addressMap.city || '',
+                        companyState: addressMap.state || '',
+                        companyCountry: addressMap.country || '',
+                        companyZip: addressMap.zip || '',
+                        companyLatitude: lat,
+                        companyLongitude: lng
+                    }));
+                });
+            })
+            .catch(error => console.error('Geocoding error:', error));
     };
 
     const handleSubmit = async (e) => {
@@ -94,7 +212,7 @@ const ProfileCompletion = () => {
             // Backend validation for recruiter uses: !location. But we updated user.js to use companyAddress etc.
             // Wait, I commented out the strict validation in user.js, so we are safe.
 
-            const response = await axios.put('/api/user/profile', data, {
+            const response = await axios.patch('/api/user/profile', data, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -149,6 +267,23 @@ const ProfileCompletion = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Full Name</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <User className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            required
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            className="input-field pl-10"
+                                            placeholder="John Doe"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Phone Number</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -170,7 +305,31 @@ const ProfileCompletion = () => {
                             {user.role === 'jobseeker' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     <div className="space-y-2 md:col-span-3">
-                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Street Address</label>
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Search Address</label>
+                                        <div className="text-black">
+                                            <GooglePlacesAutocomplete
+                                                apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                                                selectProps={{
+                                                    value: userLocationValue,
+                                                    onChange: handleUserLocationSelect,
+                                                    placeholder: 'Start typing address...',
+                                                    styles: {
+                                                        control: (provided) => ({
+                                                            ...provided,
+                                                            borderRadius: '0.5rem',
+                                                            borderColor: '#d1d5db',
+                                                        }),
+                                                        option: (provided, state) => ({
+                                                            ...provided,
+                                                            color: 'black',
+                                                        }),
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2 md:col-span-3">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Full Address</label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                 <Home className="h-4 w-4 text-gray-400" />
@@ -383,7 +542,7 @@ const ProfileCompletion = () => {
                                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Industry</label>
                                             <input type="text" name="recruiterIndustry" value={formData.recruiterIndustry} onChange={handleChange} className="input-field" placeholder="Technology" />
                                         </div>
-                                        <div className="space-y-2">
+                                        {/* <div className="space-y-2">
                                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Company Size</label>
                                             <div className="relative">
                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -391,7 +550,7 @@ const ProfileCompletion = () => {
                                                 </div>
                                                 <input type="text" name="companySize" value={formData.companySize} onChange={handleChange} className="input-field pl-10" placeholder="e.g. 50-200" />
                                             </div>
-                                        </div>
+                                        </div> */}
                                         <div className="space-y-2 md:col-span-2">
                                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Website (Optional)</label>
                                             <div className="relative">
@@ -414,7 +573,31 @@ const ProfileCompletion = () => {
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         <div className="space-y-2 md:col-span-3">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Street Address</label>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Search Company Address</label>
+                                            <div className="text-black">
+                                                <GooglePlacesAutocomplete
+                                                    apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                                                    selectProps={{
+                                                        value: companyLocationValue,
+                                                        onChange: handleCompanyLocationSelect,
+                                                        placeholder: 'Start typing address...',
+                                                        styles: {
+                                                            control: (provided) => ({
+                                                                ...provided,
+                                                                borderRadius: '0.5rem',
+                                                                borderColor: '#d1d5db',
+                                                            }),
+                                                            option: (provided, state) => ({
+                                                                ...provided,
+                                                                color: 'black',
+                                                            }),
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2 md:col-span-3">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Full Address</label>
                                             <div className="relative">
                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                     <MapPin className="h-4 w-4 text-gray-400" />

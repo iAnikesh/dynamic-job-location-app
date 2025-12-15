@@ -42,8 +42,8 @@ const Header = () => {
         <>
             <header
                 className={`sticky top-0 z-40 w-full transition-all duration-300 ${scrolled
-                        ? 'bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-sm'
-                        : 'bg-white dark:bg-black border-b border-gray-100 dark:border-gray-800'
+                    ? 'bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-sm'
+                    : 'bg-white dark:bg-black border-b border-gray-100 dark:border-gray-800'
                     }`}
             >
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -116,7 +116,7 @@ const Header = () => {
                                                 </div>
 
                                                 <Link
-                                                    to="/profile"
+                                                    to={`/profile/${user.username}`}
                                                     className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
                                                     onClick={() => setIsProfileOpen(false)}
                                                 >
@@ -214,7 +214,7 @@ const Header = () => {
                                             </div>
                                         </div>
 
-                                        <Link to="/profile" className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>
+                                        <Link to={`/profile/${user.username}`} className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>
                                             <User size={18} /> Profile
                                         </Link>
                                         <Link to="/settings" className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>

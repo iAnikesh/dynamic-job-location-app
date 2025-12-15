@@ -6,6 +6,128 @@ const router = express.Router();
 
 // Update profile (complete profile)
 const upload = require("../middleware/uploadMiddleware");
+router.patch("/profile", auth, upload.fields([
+  { name: 'avatar', maxCount: 1 },
+  { name: 'resume', maxCount: 1 },
+  { name: 'companyLogo', maxCount: 1 },
+  { name: 'businessRegistration', maxCount: 1 },
+  { name: 'verificationDocuments', maxCount: 5 }
+]), async (req, res) => {
+  try {
+    const {
+      name, bio, phone, address, city, state, zip, country,
+      experienceYears, experienceLevel, jobSeekerIndustry, skills,
+      preferedJobType, portfolio, institution, degree, fieldOfStudy,
+      educationStartDate, educationEndDate, educationCurrent,
+      company, position, workExperienceDescription,
+      workExperienceStartDate, workExperienceEndDate, workExperienceCurrent,
+      companyName, companyWebsite, companyDescription, recruiterIndustry,
+      companyAddress, companyCity, companyState, companyCountry, companyZip,
+      latitude, longitude, companyLatitude, companyLongitude
+    } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Helper to parser JSON if needed
+    const safeParseJSON = (str) => {
+      try { return JSON.parse(str); } catch (e) { return str; }
+    };
+
+    // Update common fields
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+
+    // Handle File Uploads
+    const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
+    if (req.files) {
+      if (req.files['avatar']) user.avatar = baseUrl + req.files['avatar'][0].filename;
+
+      if (user.role === 'jobseeker') {
+        if (req.files['resume']) {
+          user.jobSeekerProfile.resume = { url: baseUrl + req.files['resume'][0].filename, uploadedAt: new Date() };
+        }
+      } else if (user.role === 'recruiter') {
+        if (req.files['companyLogo']) user.recruiterProfile.companyLogo = baseUrl + req.files['companyLogo'][0].filename;
+        if (req.files['businessRegistration']) user.recruiterProfile.businessRegistration = baseUrl + req.files['businessRegistration'][0].filename;
+        if (req.files['verificationDocuments']) {
+          const docs = req.files['verificationDocuments'].map(f => baseUrl + f.filename);
+          user.recruiterProfile.verificationDocuments = docs;
+        }
+      }
+    }
+
+    if (user.role === 'jobseeker') {
+      const jp = user.jobSeekerProfile;
+      if (bio) jp.bio = bio;
+      if (experienceYears) jp.experienceYears = Number(experienceYears);
+      if (experienceLevel) jp.experienceLevel = experienceLevel;
+      if (jobSeekerIndustry) jp.jobSeekerIndustry = jobSeekerIndustry;
+      if (req.body.industry) jp.industries = [req.body.industry]; // Map generic industry to array
+      if (preferedJobType) jp.preferedJobType = preferedJobType;
+      if (portfolio) jp.portfolio = portfolio;
+
+      if (skills) {
+        jp.skills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim()).filter(Boolean);
+      }
+
+      // Location
+      if (address) {
+        const locUpdate = { address, city, state, zipCode: zip, country };
+        if (latitude && longitude) {
+          locUpdate.type = 'Point';
+          locUpdate.coordinates = [Number(longitude), Number(latitude)];
+        }
+        user.location = { ...user.location, ...locUpdate };
+      }
+
+      // Simple single-entry update for Education if provided
+      if (institution) {
+        jp.education = [{
+          institution, degree, fieldOfStudy,
+          startDate: educationStartDate, endDate: educationEndDate,
+          current: String(educationCurrent) === 'true'
+        }];
+      }
+
+      // Simple single-entry update for Work Experience if provided
+      if (company) {
+        jp.workExperience = [{
+          company, position, description: workExperienceDescription,
+          startDate: workExperienceStartDate, endDate: workExperienceEndDate,
+          current: String(workExperienceCurrent) === 'true'
+        }];
+      }
+    } else if (user.role === 'recruiter') {
+      const rp = user.recruiterProfile;
+      if (companyName) rp.companyName = companyName;
+      if (companyWebsite) rp.companyWebsite = companyWebsite;
+      if (companyDescription) rp.companyDescription = companyDescription;
+      if (recruiterIndustry) rp.industry = recruiterIndustry;
+
+      // Company Location
+      if (companyAddress) {
+        const compLocUpdate = {
+          address: companyAddress, city: companyCity, state: companyState,
+          country: companyCountry, zipCode: companyZip
+        };
+        if (companyLatitude && companyLongitude) {
+          compLocUpdate.type = 'Point';
+          compLocUpdate.coordinates = [Number(companyLongitude), Number(companyLatitude)];
+        }
+        rp.companyLocation = compLocUpdate;
+      }
+    }
+
+    user.profileComplete = true;
+    await user.save();
+
+    res.json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 router.put("/profile", auth, upload.fields([
   { name: 'avatar', maxCount: 1 },
@@ -51,7 +173,10 @@ router.put("/profile", auth, upload.fields([
       companyZip,
       businessRegistration,
       verificationDocuments,
-      companySize
+      latitude,
+      longitude,
+      companyLatitude,
+      companyLongitude
     } = req.body;
 
     const user = await User.findById(req.user.id);
@@ -117,9 +242,16 @@ router.put("/profile", auth, upload.fields([
 
       // Address update
       if (address) {
+        const locationUpdate = {
+          address, city, state, zipCode: zip, country
+        };
+        if (latitude && longitude) {
+          locationUpdate.type = 'Point';
+          locationUpdate.coordinates = [Number(longitude), Number(latitude)];
+        }
         user.location = {
           ...user.location,
-          address, city, state, zipCode: zip, country
+          ...locationUpdate
         };
       }
 
@@ -150,21 +282,22 @@ router.put("/profile", auth, upload.fields([
       if (name) user.name = name; // Update common name field
       if (companyName) user.recruiterProfile.companyName = companyName;
       if (companyWebsite) user.recruiterProfile.companyWebsite = companyWebsite || "";
-      if (companySize) user.recruiterProfile.companySize = companySize || ""; // Schema doesn't have companySize explicitly? Let's check view_file 270. It DOES NOT. 
-      // Wait, let me check schema again. `recruiterProfile` has companyName, companyWebsite, companyDescription, companyLogo, industry, companyLocation. NO companySize.
-      // I will skip companySize for now or add it if strictly needed.
-
       if (companyDescription) user.recruiterProfile.companyDescription = companyDescription;
       if (recruiterIndustry) user.recruiterProfile.industry = recruiterIndustry;
 
       if (companyAddress) {
-        user.recruiterProfile.companyLocation = {
+        const locationUpdate = {
           address: companyAddress,
           city: companyCity,
           state: companyState,
           country: companyCountry,
           zipCode: companyZip
         };
+        if (companyLatitude && companyLongitude) {
+          locationUpdate.type = 'Point';
+          locationUpdate.coordinates = [Number(companyLongitude), Number(companyLatitude)];
+        }
+        user.recruiterProfile.companyLocation = locationUpdate;
       }
       if (businessRegistration) user.recruiterProfile.businessRegistration = businessRegistration;
       if (verificationDocuments) user.recruiterProfile.verificationDocuments = verificationDocuments;
@@ -210,6 +343,30 @@ router.get("/profile", auth, async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+router.get("/profile/:username", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = await User.findOne({ username }).select("-password -resetOtp -resetOtpExpiry");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.role === "recruiter") {
+      return res.status(404).json({ message: "Access Denied" });
+    }
+
+    if (user.role === "jobSeeker") {
+      user.jobSeekerProfile.avatar = user.jobSeekerProfile.avatar.replace("/uploads/", "http://localhost:4000/uploads/");
+    }
+
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 
 // Save/Update selected job location
 router.post("/location", auth, async (req, res) => {

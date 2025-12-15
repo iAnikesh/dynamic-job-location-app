@@ -102,7 +102,6 @@ const UserSchema = new Schema({
     companyLogo: String,
     industry: String,
     companyLocation: {
-      type: String,
       coordinates: [Number],
       address: String,
       city: String,

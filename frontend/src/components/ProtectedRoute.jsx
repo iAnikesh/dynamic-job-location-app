@@ -23,9 +23,9 @@ const ProtectedRoute = ({ children }) => {
     }
 
     // If user is logged in and profile IS complete, but they try to access completion page, redirect to dashboard/home
-    if (user.profileComplete && location.pathname === '/profile-completion') {
-        return <Navigate to="/" replace />; // Or /dashboard
-    }
+    // if (user.profileComplete && location.pathname === '/profile-completion') {
+    //    return <Navigate to="/" replace />; // Or /dashboard
+    // }
 
     return children;
 };
