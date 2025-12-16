@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, LogOut, Briefcase, MapPin, Settings, ChevronDown, Edit2 } from 'lucide-react';
+import { Menu, X, User, LogOut, MapPin, Settings, ChevronDown, Edit2 } from 'lucide-react';
 import LocationModal from './LocationModal';
+import Logo from '../../public/hiree.work.png';
 
 const Header = () => {
     const { user, logout } = useAuth();
@@ -50,12 +51,7 @@ const Header = () => {
                     <div className="flex justify-between items-center h-16">
                         {/* Logo */}
                         <Link to="/" className="flex items-center gap-2 group">
-                            <div className="bg-black dark:bg-white text-white dark:text-black p-1.5 rounded-lg group-hover:scale-105 transition-transform duration-200">
-                                <Briefcase size={20} className="stroke-[2.5]" />
-                            </div>
-                            <span className="text-xl font-bold text-black dark:text-white tracking-tight">
-                                JobFlow
-                            </span>
+                            <img src={Logo} alt="Logo" className="w-25 h-4" />
                         </Link>
 
                         {/* Desktop Navigation */}
@@ -115,14 +111,23 @@ const Header = () => {
                                                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                                                 </div>
 
-                                                <Link
-                                                    to={`/profile/${user.username}`}
-                                                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                                                    onClick={() => setIsProfileOpen(false)}
-                                                >
-                                                    <User size={16} />
-                                                    Profile
-                                                </Link>
+                                                {user.role === 'jobseeker' && (
+                                                    <Link
+                                                        to={`/profile/${user.username}`}
+                                                        className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                                                        onClick={() => setIsProfileOpen(false)}
+                                                    >
+                                                        <User size={16} />
+                                                        Profile
+                                                    </Link>
+                                                )}
+                                                {user.role === 'recruiter' && (
+                                                    <Link to="/profile-completion" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors" onClick={toggleMenu}>
+                                                        <Settings size={16} />
+                                                        Profile Edit
+                                                    </Link>
+                                                )}
+
 
                                                 <Link
                                                     to="/settings"
@@ -214,9 +219,16 @@ const Header = () => {
                                             </div>
                                         </div>
 
-                                        <Link to={`/profile/${user.username}`} className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>
-                                            <User size={18} /> Profile
-                                        </Link>
+                                        {user.role === 'jobseeker' && (
+                                            <Link to={`/profile/${user.username}`} className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>
+                                                <User size={18} /> Profile
+                                            </Link>
+                                        )}
+                                        {user.role === 'recruiter' && (
+                                            <Link to="/profile-completion" className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>
+                                                <Settings size={18} /> Settings
+                                            </Link>
+                                        )}
                                         <Link to="/settings" className="flex items-center gap-3 py-2 text-gray-600 dark:text-gray-300" onClick={toggleMenu}>
                                             <Settings size={18} /> Settings
                                         </Link>
