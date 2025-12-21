@@ -1,12 +1,15 @@
 // frontend/src/pages/Jobs.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { Search, MapPin, Briefcase, DollarSign, Clock, Building2, Filter, X } from 'lucide-react';
+import { Search, MapPin, Briefcase, DollarSign, Clock, Building2, Filter, X, Navigation, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import GooglePlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-google-places-autocomplete';
 
+
 const Jobs = () => {
+    const { user } = useAuth();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({});
@@ -16,13 +19,32 @@ const Jobs = () => {
         jobType: '',
         workMode: '',
         experienceLevel: '',
-        page: 1
+        industry: [],
+        page: 1,
+        isUrgent: false
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [initialized, setInitialized] = useState(false);
 
     useEffect(() => {
-        fetchJobs();
-    }, [filters.page]);
+        if (user && !initialized) {
+            if (user.role === 'jobseeker' && user.jobSeekerProfile?.industries?.length > 0) {
+                setFilters(prev => ({
+                    ...prev,
+                    industry: user.jobSeekerProfile.industries.join(',')
+                }));
+            }
+            setInitialized(true);
+        } else if (!user && !initialized) {
+            setInitialized(true);
+        }
+    }, [user, initialized]);
+
+    useEffect(() => {
+        if (initialized) {
+            fetchJobs();
+        }
+    }, [filters.page, initialized]);
 
     const fetchJobs = async () => {
         setLoading(true);
@@ -68,7 +90,6 @@ const Jobs = () => {
                     lng,
                     page: 1
                 });
-                // Optional: trigger search immediately or wait for button click
             })
             .catch(error => console.error('Geocoding error:', error));
     };
@@ -76,12 +97,15 @@ const Jobs = () => {
     const handleSearch = (e) => {
         e.preventDefault();
         setFilters({ ...filters, page: 1 });
-        fetchJobs();
+        // Need to call fetchJobs because page might not change (if already 1)
+        setTimeout(fetchJobs, 0);
     };
 
     const handleFilterChange = (key, value) => {
         setFilters({ ...filters, [key]: value, page: 1 });
     };
+
+
 
     const clearFilters = () => {
         setFilters({
@@ -90,15 +114,25 @@ const Jobs = () => {
             jobType: '',
             workMode: '',
             experienceLevel: '',
+            industry: '',
             page: 1
         });
+        setLocationValue(null);
         setTimeout(fetchJobs, 100);
     };
 
     const formatSalary = (salary) => {
         if (!salary?.min && !salary?.max) return 'Not disclosed';
-        const min = salary.min ? `$${(salary.min / 1000).toFixed(0)}k` : '';
-        const max = salary.max ? `$${(salary.max / 1000).toFixed(0)}k` : '';
+        let curr = '₹';
+        if (salary.currency === 'USD') {
+            curr = '$';
+        } else if (salary.currency === 'EUR') {
+            curr = '€';
+        } else if (salary.currency === 'GBP') {
+            curr = '£';
+        }
+        const min = salary.min ? `${curr}${(salary.min / 1000).toFixed(0)}k` : '';
+        const max = salary.max ? `${curr}${(salary.max / 1000).toFixed(0)}k` : '';
         return `${min}${min && max ? ' - ' : ''}${max}`;
     };
 
@@ -120,6 +154,39 @@ const Jobs = () => {
             }
         }
         return 'Just now';
+    };
+
+    const formatDistance = (meters) => {
+        if (!meters) return null;
+        return (meters / 1000).toFixed(1) + ' km away';
+    };
+
+    const handleNearMe = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser");
+            return;
+        }
+
+        toast.loading("Getting your location...", { id: 'geoLoc' });
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                toast.dismiss('geoLoc');
+                setFilters({
+                    ...filters,
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    location: 'Current Location',
+                    page: 1
+                });
+                setLocationValue({ label: 'Current Location', value: 'Current Location' });
+            },
+            (error) => {
+                toast.dismiss('geoLoc');
+                console.error("Geolocation error:", error);
+                toast.error("Unable to retrieve your location");
+            }
+        );
     };
 
     return (
@@ -165,16 +232,16 @@ const Jobs = () => {
                                                     border: 'none',
                                                     boxShadow: 'none',
                                                     backgroundColor: 'transparent',
-                                                    paddingLeft: '30px', // Adjust for MapPin icon
-                                                    paddingTop: '0.45rem', // py-3 equivalent
-                                                    paddingBottom: '0.45rem', // py-3 equivalent
-                                                    minHeight: 'auto', // Override default min-height
+                                                    paddingLeft: '30px',
+                                                    paddingTop: '0.45rem',
+                                                    paddingBottom: '0.45rem',
+                                                    minHeight: 'auto',
                                                 }),
                                                 input: (provided) => ({
                                                     ...provided,
                                                     color: 'inherit',
-                                                    margin: '0', // Remove default margin
-                                                    padding: '0', // Remove default padding
+                                                    margin: '0',
+                                                    padding: '0',
                                                 }),
                                                 singleValue: (provided) => ({
                                                     ...provided,
@@ -182,22 +249,22 @@ const Jobs = () => {
                                                 }),
                                                 placeholder: (provided) => ({
                                                     ...provided,
-                                                    color: '#9ca3af', // gray-400
+                                                    color: '#9ca3af',
                                                 }),
                                                 menu: (provided) => ({
                                                     ...provided,
                                                     zIndex: 50,
                                                     borderRadius: '0.75rem',
                                                     marginTop: '0.5rem',
-                                                    backgroundColor: 'white', // Ensure menu background is visible
-                                                    color: 'black', // Ensure text is visible
+                                                    backgroundColor: 'white',
+                                                    color: 'black',
                                                 }),
                                                 option: (provided, state) => ({
                                                     ...provided,
                                                     color: 'black',
-                                                    backgroundColor: state.isFocused ? '#f3f4f6' : 'white', // gray-100
+                                                    backgroundColor: state.isFocused ? '#f3f4f6' : 'white',
                                                     '&:active': {
-                                                        backgroundColor: '#e5e7eb', // gray-200
+                                                        backgroundColor: '#e5e7eb',
                                                     },
                                                 }),
                                             }
@@ -223,7 +290,7 @@ const Jobs = () => {
                             <Filter size={16} />
                             Filters
                         </button>
-                        {(filters.jobType || filters.workMode || filters.experienceLevel) && (
+                        {(filters.jobType || filters.workMode || filters.experienceLevel || filters.industry) && (
                             <button
                                 onClick={clearFilters}
                                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
@@ -232,15 +299,24 @@ const Jobs = () => {
                                 Clear Filters
                             </button>
                         )}
+                        <button
+                            onClick={handleNearMe}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm font-medium"
+                        >
+                            <Navigation size={16} />
+                            Jobs Near Me
+                        </button>
                     </div>
+
+
                 </div>
             </div>
 
             {/* Filters Panel */}
             {showFilters && (
-                <div className="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800">
+                <div className="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 animate-in slide-in-from-top-4 duration-200">
                     <div className="container mx-auto px-4 py-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                     Job Type
@@ -248,7 +324,7 @@ const Jobs = () => {
                                 <select
                                     value={filters.jobType}
                                     onChange={(e) => handleFilterChange('jobType', e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
                                 >
                                     <option value="">All Types</option>
                                     <option value="full-time">Full Time</option>
@@ -266,7 +342,7 @@ const Jobs = () => {
                                 <select
                                     value={filters.workMode}
                                     onChange={(e) => handleFilterChange('workMode', e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
                                 >
                                     <option value="">All Modes</option>
                                     <option value="onsite">Onsite</option>
@@ -277,12 +353,25 @@ const Jobs = () => {
 
                             <div>
                                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                    Industry
+                                </label>
+                                <input
+                                    type="text"
+                                    value={filters.industry}
+                                    onChange={(e) => handleFilterChange('industry', e.target.value)}
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+                                    placeholder="e.g. Technology"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                     Experience Level
                                 </label>
                                 <select
                                     value={filters.experienceLevel}
                                     onChange={(e) => handleFilterChange('experienceLevel', e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white"
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
                                 >
                                     <option value="">All Levels</option>
                                     <option value="entry">Entry Level</option>
@@ -294,10 +383,10 @@ const Jobs = () => {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-4">
+                        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <button
                                 onClick={clearFilters}
-                                className="px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                className="px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-black dark:text-white"
                             >
                                 Reset
                             </button>
@@ -347,7 +436,7 @@ const Jobs = () => {
                                 <Link
                                     key={job._id}
                                     to={`/jobs/${job._id}`}
-                                    className="block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-black dark:hover:border-white transition-all hover:shadow-lg p-6"
+                                    className="block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-black dark:hover:border-white transition-all hover:shadow-lg p-6 group"
                                 >
                                     <div className="flex gap-4">
                                         <div className="flex-shrink-0">
@@ -355,19 +444,33 @@ const Jobs = () => {
                                                 <img
                                                     src={job.companyLogo}
                                                     alt={job.recruiterName}
-                                                    className="w-16 h-16 rounded-lg object-cover"
+                                                    className="w-16 h-16 rounded-lg object-contain"
                                                 />
                                             ) : (
-                                                <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                                <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center transition-colors group-hover:bg-gray-200 dark:group-hover:bg-gray-600">
                                                     <Building2 size={32} className="text-gray-400" />
                                                 </div>
                                             )}
                                         </div>
 
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="text-xl font-semibold text-black dark:text-white mb-2 truncate">
-                                                {job.title}
-                                            </h3>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h3 className="text-xl font-semibold text-black dark:text-white truncate">
+                                                    {job.title}
+                                                </h3>
+                                                {job.industry && (
+                                                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
+                                                        {job.industry}
+                                                    </span>
+                                                )}
+                                                {job.isUrgent && (
+                                                    <span className="flex items-center gap-1 text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400 font-medium">
+                                                        <Zap size={12} />
+                                                        Urgent
+                                                    </span>
+                                                )}
+                                            </div>
+
                                             <p className="text-gray-600 dark:text-gray-400 mb-3">
                                                 {job.recruiterName}
                                             </p>
@@ -389,6 +492,12 @@ const Jobs = () => {
                                                     <Clock size={16} />
                                                     {getTimeAgo(job.createdAt)}
                                                 </span>
+                                                {job.dist?.calculated && (
+                                                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                                        <Navigation size={16} />
+                                                        {formatDistance(job.dist.calculated)}
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {job.skills && job.skills.length > 0 && (

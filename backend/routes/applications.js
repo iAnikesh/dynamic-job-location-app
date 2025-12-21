@@ -95,6 +95,45 @@ router.put("/:id/status", auth, async (req, res) => {
 
     await application.save();
 
+    // Notify Job Seeker
+    try {
+      const Notification = require('../models/Notifications');
+
+      let title = 'Application Update';
+      let message = `Your application for ${application.jobTitle} has been updated to ${status}.`;
+
+      if (status === 'shortlisted') {
+        title = 'Congratulations! You are Shortlisted';
+        message = `Good news! You have been shortlisted for ${application.jobTitle}.`;
+      } else if (status === 'rejected') {
+        title = 'Application Update';
+        message = `Update regarding your application for ${application.jobTitle}.`;
+      } else if (status === 'hired') {
+        title = 'You are Hired!';
+        message = `Congratulations! You have been hired for ${application.jobTitle}.`;
+      }
+
+      await Notification.create({
+        userId: application.jobSeekerId,
+        type: 'application_update',
+        title,
+        message,
+        relatedApplicationId: application._id,
+        relatedJobId: application.jobId,
+        actionUrl: `/applications`
+      });
+
+      req.io.to(application.jobSeekerId.toString()).emit('notification', {
+        type: 'application_update',
+        title,
+        message,
+        applicationId: application._id
+      });
+
+    } catch (notifyError) {
+      console.error("Notification error:", notifyError);
+    }
+
     res.json({
       message: "Status updated successfully",
       application

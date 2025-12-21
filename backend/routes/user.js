@@ -16,15 +16,18 @@ router.patch("/profile", auth, upload.fields([
   try {
     const {
       name, bio, phone, address, city, state, zip, country,
-      experienceYears, experienceLevel, jobSeekerIndustry, skills,
+      experienceYears, experienceLevel, skills,
       preferedJobType, portfolio, institution, degree, fieldOfStudy,
       educationStartDate, educationEndDate, educationCurrent,
       company, position, workExperienceDescription,
       workExperienceStartDate, workExperienceEndDate, workExperienceCurrent,
-      companyName, companyWebsite, companyDescription, recruiterIndustry,
+      companyName, companyWebsite, companyDescription,
       companyAddress, companyCity, companyState, companyCountry, companyZip,
       latitude, longitude, companyLatitude, companyLongitude
     } = req.body;
+
+    // Extract industries from body (might be string or array)
+    const industries = req.body.industries;
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -62,8 +65,11 @@ router.patch("/profile", auth, upload.fields([
       if (bio) jp.bio = bio;
       if (experienceYears) jp.experienceYears = Number(experienceYears);
       if (experienceLevel) jp.experienceLevel = experienceLevel;
-      if (jobSeekerIndustry) jp.jobSeekerIndustry = jobSeekerIndustry;
-      if (req.body.industry) jp.industries = [req.body.industry]; // Map generic industry to array
+      if (experienceLevel) jp.experienceLevel = experienceLevel;
+      // Handle Industries (Array)
+      if (industries) {
+        jp.industries = Array.isArray(industries) ? industries : [industries];
+      }
       if (preferedJobType) jp.preferedJobType = preferedJobType;
       if (portfolio) jp.portfolio = portfolio;
 
@@ -103,7 +109,8 @@ router.patch("/profile", auth, upload.fields([
       if (companyName) rp.companyName = companyName;
       if (companyWebsite) rp.companyWebsite = companyWebsite;
       if (companyDescription) rp.companyDescription = companyDescription;
-      if (recruiterIndustry) rp.industry = recruiterIndustry;
+      if (companyDescription) rp.companyDescription = companyDescription;
+      // if (recruiterIndustry) rp.industry = recruiterIndustry; // Removed
 
       // Company Location
       if (companyAddress) {
@@ -146,26 +153,10 @@ router.put("/profile", auth, upload.fields([
       country,
       experienceYears,
       experienceLevel,
-      jobSeekerIndustry,
-      skills,
-      preferedJobType,
-      portfolio,
-      institution,
-      degree,
-      fieldOfStudy,
-      educationStartDate,
-      educationEndDate,
-      educationCurrent,
-      company,
-      position,
-      workExperienceDescription,
-      workExperienceStartDate,
-      workExperienceEndDate,
-      workExperienceCurrent,
       companyName,
       companyWebsite,
       companyDescription,
-      recruiterIndustry,
+      // recruiterIndustry, // Removed
       companyAddress,
       companyCity,
       companyState,
@@ -218,14 +209,16 @@ router.put("/profile", auth, upload.fields([
      */
 
       if (name) user.name = name; // Update common name field
+      if (name) user.name = name; // Update common name field
       if (experienceLevel) user.jobSeekerProfile.experienceLevel = experienceLevel;
-      // Map 'industry' from frontend to correct schema field if needed
-      if (jobSeekerIndustry) user.jobSeekerProfile.jobSeekerIndustry = jobSeekerIndustry; // or user.jobSeekerProfile.industry common field
 
-      // Frontend sends 'industry' which might map to common 'industry' or 'jobSeekerProfile.industry'
-      // Schema has 'industry' at root (common?) or jobSeekerProfile.industries (array). 
-      // Let's just Map frontend 'industry' to `jobSeekerProfile.industries` as a single item array for now.
-      if (req.body.industry) user.jobSeekerProfile.industries = [req.body.industry];
+      // Handle Industries payload
+      if (req.body.industries) {
+        user.jobSeekerProfile.industries = Array.isArray(req.body.industries) ? req.body.industries : [req.body.industries];
+      } else if (req.body.industry) {
+        // Fallback for legacy calls or malformed data
+        user.jobSeekerProfile.industries = Array.isArray(req.body.industry) ? req.body.industry : [req.body.industry];
+      }
 
       if (skills) {
         // If came from multipart form, it might be a string "react, node"
@@ -283,7 +276,8 @@ router.put("/profile", auth, upload.fields([
       if (companyName) user.recruiterProfile.companyName = companyName;
       if (companyWebsite) user.recruiterProfile.companyWebsite = companyWebsite || "";
       if (companyDescription) user.recruiterProfile.companyDescription = companyDescription;
-      if (recruiterIndustry) user.recruiterProfile.industry = recruiterIndustry;
+      if (companyDescription) user.recruiterProfile.companyDescription = companyDescription;
+      // if (recruiterIndustry) user.recruiterProfile.industry = recruiterIndustry; // Removed
 
       if (companyAddress) {
         const locationUpdate = {

@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, LogOut, MapPin, Settings, ChevronDown, Edit2 } from 'lucide-react';
+import { useSocket } from '../context/SocketContext';
+import { Menu, X, User, LogOut, MapPin, Settings, ChevronDown, Edit2, Bell } from 'lucide-react';
 import LocationModal from './LocationModal';
-import Logo from '../../public/hiree.work.png';
+import Logo from '/hiree.work.png';
 
 const Header = () => {
     const { user, logout } = useAuth();
+    const { notifications, unreadCount, markAsRead, markAllAsRead } = useSocket();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const dropdownRef = useRef(null);
@@ -51,7 +54,7 @@ const Header = () => {
                     <div className="flex justify-between items-center h-16">
                         {/* Logo */}
                         <Link to="/" className="flex items-center gap-2 group">
-                            <img src={Logo} alt="Logo" className="w-25 h-4" />
+                            <img src={Logo} alt="Logo" className="w-28 h-4" />
                         </Link>
 
                         {/* Desktop Navigation */}
@@ -86,6 +89,70 @@ const Header = () => {
                                             <Edit2 size={12} className="text-gray-400 group-hover:text-black dark:group-hover:text-white opacity-0 group-hover:opacity-100 transition-all" />
                                         </button>
                                     )}
+
+                                    {/* Notifications */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                                            className="relative p-2 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors"
+                                        >
+                                            <Bell size={20} />
+                                            {unreadCount > 0 && (
+                                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-black"></span>
+                                            )}
+                                        </button>
+
+                                        {isNotificationsOpen && (
+                                            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-black rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 py-2 animate-in fade-in zoom-in duration-200 ring-1 ring-black/5 max-h-[400px] overflow-y-auto">
+                                                <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-black sticky top-0 z-10">
+                                                    <span className="font-semibold text-sm">Notifications</span>
+                                                    {unreadCount > 0 && (
+                                                        <button
+                                                            onClick={markAllAsRead}
+                                                            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium"
+                                                        >
+                                                            Mark all read
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="py-1">
+                                                    {notifications.length === 0 ? (
+                                                        <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                                                            No notifications yet
+                                                        </div>
+                                                    ) : (
+                                                        notifications.map((notification) => (
+                                                            <div
+                                                                key={notification._id}
+                                                                className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${!notification.isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                                            >
+                                                                <div className="flex gap-3">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm font-medium text-black dark:text-white truncate">
+                                                                            {notification.title}
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                                                                            {notification.message}
+                                                                        </p>
+                                                                        <p className="text-[10px] text-gray-400 mt-1">
+                                                                            {new Date(notification.createdAt).toLocaleDateString()}
+                                                                        </p>
+                                                                    </div>
+                                                                    {!notification.isRead && (
+                                                                        <button
+                                                                            onClick={() => markAsRead(notification._id)}
+                                                                            className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"
+                                                                            title="Mark as read"
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
 
                                     {/* Profile Dropdown */}
                                     <div className="relative" ref={dropdownRef}>

@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import Select from 'react-select';
+import { INDUSTRIES } from '../constants/industries';
 import { useAuth } from '../context/AuthContext';
 import { User, Phone, MapPin, Briefcase, Award, Building2, Globe, Users, FileText, GraduationCap, Calendar, Home, Link as LinkIcon, Image as ImageIcon, FileText as FileIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -21,7 +23,7 @@ const ProfileCompletion = () => {
         zip: '',
         country: '',
         experienceLevel: 'entry',
-        industry: '',
+        industry: [], // Changed to array
         skills: '',
         bio: '',
         resume: null,
@@ -40,7 +42,7 @@ const ProfileCompletion = () => {
         companyWebsite: '',
         companyDescription: '',
         companyLogo: null,
-        recruiterIndustry: '',
+        // recruiterIndustry: '', // Removed
         companyAddress: '',
         companyCity: '',
         companyState: '',
@@ -74,7 +76,7 @@ const ProfileCompletion = () => {
 
                 // Job Seeker Profile
                 experienceLevel: jp.experienceLevel || 'entry',
-                industry: jp.jobSeekerIndustry || (jp.industries && jp.industries[0]) || '',
+                industry: jp.industries || (jp.jobSeekerIndustry ? [jp.jobSeekerIndustry] : []),
                 skills: (jp.skills || []).join(', '),
                 bio: jp.bio || '',
                 portfolio: jp.portfolio || '',
@@ -97,7 +99,7 @@ const ProfileCompletion = () => {
                 companyName: rp.companyName || '',
                 companyWebsite: rp.companyWebsite || '',
                 companyDescription: rp.companyDescription || '',
-                recruiterIndustry: rp.industry || '',
+                // recruiterIndustry: rp.industry || '', // Removed
 
                 // Recruiter Location
                 companyAddress: compLoc.address || '',
@@ -189,14 +191,19 @@ const ProfileCompletion = () => {
 
             // Append all simple fields
             Object.keys(formData).forEach(key => {
-                // Skip files for now, append them specifically if needed or just handle all
-                if (key !== 'avatar' && key !== 'resume' && key !== 'companyLogo') {
+                // Skip files and industry (handled separately)
+                if (key !== 'avatar' && key !== 'resume' && key !== 'companyLogo' && key !== 'industry') {
                     // Only append if the value is not null/undefined/empty string to avoid sending empty fields
                     if (formData[key] !== null && formData[key] !== undefined && formData[key] !== '') {
                         data.append(key, formData[key]);
                     }
                 }
             });
+
+            // Append Industry (Array)
+            if (formData.industry && formData.industry.length > 0) {
+                formData.industry.forEach(ind => data.append('industries', ind));
+            }
 
             // Append Files
             if (formData.avatar) data.append('avatar', formData.avatar);
@@ -416,12 +423,21 @@ const ProfileCompletion = () => {
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Industry</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                    <Briefcase className="h-4 w-4 text-gray-400" />
-                                                </div>
-                                                <input type="text" name="industry" required value={formData.industry} onChange={handleChange} className="input-field pl-10" placeholder="Software Engineering" />
-                                            </div>
+                                            <Select
+                                                isMulti
+                                                name="industry"
+                                                options={INDUSTRIES}
+                                                value={INDUSTRIES.filter(option => formData.industry.includes(option.value))}
+                                                onChange={(selectedOptions) => {
+                                                    setFormData({
+                                                        ...formData,
+                                                        industry: selectedOptions ? selectedOptions.map(opt => opt.value) : []
+                                                    });
+                                                }}
+                                                className="basic-multi-select text-black"
+                                                classNamePrefix="select"
+                                                placeholder="Select industries..."
+                                            />
                                         </div>
                                     </div>
 
@@ -539,8 +555,7 @@ const ProfileCompletion = () => {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Industry</label>
-                                            <input type="text" name="recruiterIndustry" value={formData.recruiterIndustry} onChange={handleChange} className="input-field" placeholder="Technology" />
+                                            {/* Industry removed for recruiters */}
                                         </div>
                                         {/* <div className="space-y-2">
                                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 ml-1">Company Size</label>

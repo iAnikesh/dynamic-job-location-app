@@ -37,6 +37,11 @@ const UserSchema = new Schema({
   bio: String,
 
   location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
     coordinates: {
       type: [Number], // [longitude, latitude]
       index: '2dsphere'
@@ -100,7 +105,7 @@ const UserSchema = new Schema({
     companyWebsite: String,
     companyDescription: String,
     companyLogo: String,
-    industry: String,
+    // industry: String, // Removed in favor of job-specific industries
     companyLocation: {
       coordinates: [Number],
       address: String,

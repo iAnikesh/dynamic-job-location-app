@@ -35,9 +35,11 @@ router.post("/create", auth, async (req, res) => {
       location,
       openings,
       applicationDeadline,
+      applicationUrl,
       benefits,
       responsibilities,
-      qualifications
+      qualifications,
+      isUrgent
     } = req.body;
 
     // Validation
@@ -55,7 +57,7 @@ router.post("/create", auth, async (req, res) => {
       companyLogo: recruiter.recruiterProfile.companyLogo,
       jobType,
       workMode,
-      industry: industry || recruiter.recruiterProfile.industry,
+      industry: Array.isArray(industry) ? industry : (industry ? [industry] : []),
       category,
       experienceRequired,
       experienceLevel,
@@ -65,14 +67,103 @@ router.post("/create", auth, async (req, res) => {
       location,
       openings: openings || 1,
       applicationDeadline,
+      applicationUrl,
       benefits: Array.isArray(benefits) ? benefits : [],
       responsibilities: Array.isArray(responsibilities) ? responsibilities : [],
       qualifications: Array.isArray(qualifications) ? qualifications : [],
       publishedAt: new Date(),
-      status: 'active'
+      status: 'active',
+      isUrgent: isUrgent || false
     });
 
     await job.save();
+
+    // Notify matching job seekers
+    try {
+      console.log('🔍 Checking for matching users. Job Industry:', job.industry);
+      if (job.industry && job.industry.length > 0) {
+        // Find users who have subscribed to these industries
+        const matchingUsers = await User.find({
+          role: 'jobseeker',
+          'jobSeekerProfile.industries': { $in: job.industry.map(i => new RegExp(`^${i}$`, 'i')) }
+        });
+
+        console.log(`found ${matchingUsers.length} matching users`);
+
+        const Notification = require('../models/Notifications');
+
+        const notifications = matchingUsers.map(user => ({
+          userId: user._id,
+          type: 'new_job_match',
+          title: 'New Job Match',
+          message: `A new job "${job.title}" in ${job.industry.join(', ')} has been posted.`,
+          relatedJobId: job._id,
+          actionUrl: `/jobs/${job._id}`
+        }));
+
+        if (notifications.length > 0) {
+          await Notification.insertMany(notifications);
+          console.log('✅ Notifications saved to DB');
+
+          // Emit real-time events
+          matchingUsers.forEach(user => {
+            console.log(`📡 Emitting 'notification' to room: ${user._id.toString()}`);
+            req.io.to(user._id.toString()).emit('notification', {
+              type: 'new_job_match',
+              title: 'New Job Match',
+              message: `A new job "${job.title}" has been posted.`,
+              jobId: job._id
+            });
+          });
+        }
+      }
+
+      // Notify nearby users if Urgent
+      if (job.isUrgent && job.location && job.location.coordinates) {
+        console.log('🚨 Urgent Job! Search for nearby users...');
+        const nearbyUsers = await User.find({
+          role: 'jobseeker',
+          'location.coordinates': {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: job.location.coordinates
+              },
+              $maxDistance: 20000 // 20km
+            }
+          }
+        });
+
+        console.log(`found ${nearbyUsers.length} nearby users for urgent job`);
+
+        const Notification = require('../models/Notifications');
+        const urgentNotifications = nearbyUsers.map(user => ({
+          userId: user._id,
+          type: 'urgent_job_alert',
+          title: '🚨 Urgent Job Nearby!',
+          message: `URGENT: ${job.title} is hiring near you!`,
+          relatedJobId: job._id,
+          actionUrl: `/jobs/${job._id}`
+        }));
+
+        if (urgentNotifications.length > 0) {
+          await Notification.insertMany(urgentNotifications);
+
+          // Emit real-time events
+          nearbyUsers.forEach(user => {
+            req.io.to(user._id.toString()).emit('notification', {
+              type: 'urgent_job_alert',
+              title: '🚨 Urgent Job Nearby!',
+              message: `URGENT: ${job.title} is hiring near you!`,
+              jobId: job._id
+            });
+          });
+        }
+      }
+    } catch (notifyError) {
+      console.error("Notification error:", notifyError);
+      // Don't fail the request if notification fails
+    }
 
     res.status(201).json({
       message: "Job posted successfully",
@@ -105,87 +196,122 @@ router.get("/", async (req, res) => {
       salaryMin,
       salaryMax,
       sortBy = 'createdAt',
-      order = 'desc'
+      order = 'desc',
+      isUrgent
     } = req.query;
 
-    const query = { status: 'active', isActive: true };
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-    // Search filter
+    // Common Match Query (for non-geo fields)
+    const matchQuery = { status: 'active', isActive: true };
+
     if (search) {
-      query.$or = [
+      matchQuery.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
         { skills: { $in: [new RegExp(search, 'i')] } }
       ];
     }
 
-    // Location filter
-    if (lat && lng) {
-      query['location.coordinates'] = {
-        $geoWithin: {
-          $centerSphere: [
-            [Number(lng), Number(lat)],
-            (Number(radius) || 50) / 6378.1 // radius in radians (km / earth radius)
-          ]
-        }
-      };
-    } else if (location) {
-      query.$or = [
-        { 'location.city': { $regex: location, $options: 'i' } },
-        { 'location.state': { $regex: location, $options: 'i' } },
-        { 'location.country': { $regex: location, $options: 'i' } }
-      ];
-    }
+    if (jobType) matchQuery.jobType = jobType;
+    if (workMode) matchQuery.workMode = workMode;
+    if (experienceLevel) matchQuery.experienceLevel = experienceLevel;
+    if (isUrgent === 'true') matchQuery.isUrgent = true;
 
-    // Job type filter
-    if (jobType) {
-      query.jobType = jobType;
-    }
-
-    // Work mode filter
-    if (workMode) {
-      query.workMode = workMode;
-    }
-
-    // Experience level filter
-    if (experienceLevel) {
-      query.experienceLevel = experienceLevel;
-    }
-
-    // Industry filter
     if (industry) {
-      query.industry = industry;
+      const industries = industry.split(',').map(i => i.trim()).filter(Boolean);
+      if (industries.length > 0) {
+        matchQuery.industry = {
+          $in: industries.map(ind => new RegExp(`^${ind}$`, 'i'))
+        };
+      }
     }
 
-    // Salary filter
     if (salaryMin || salaryMax) {
-      query['salary.min'] = {};
-      if (salaryMin) query['salary.min'].$gte = Number(salaryMin);
-      if (salaryMax) query['salary.max'].$lte = Number(salaryMax);
+      matchQuery['salary.min'] = {};
+      if (salaryMin) matchQuery['salary.min'].$gte = Number(salaryMin);
+      if (salaryMax) matchQuery['salary.max'].$lte = Number(salaryMax);
     }
 
-    const skip = (page - 1) * limit;
-    const sortOptions = {};
-    sortOptions[sortBy] = order === 'desc' ? -1 : 1;
+    let jobs = [];
+    let total = 0;
 
-    const [jobs, total] = await Promise.all([
-      Job.find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(Number(limit))
-        .select('-__v'),
-      Job.countDocuments(query)
-    ]);
+    // CHECK IF GEO-SEARCH IS REQUIRED
+    if (lat && lng) {
+      // Use Aggregation Pipeline for GeoNear
+      const pipeline = [];
+
+      // 1. $geoNear (Must be first)
+      pipeline.push({
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [Number(lng), Number(lat)]
+          },
+          distanceField: "dist.calculated", // Output field for distance
+          maxDistance: (Number(radius) || 50) * 1000, // Convert km to meters
+          spherical: true,
+          query: matchQuery, // Apply filters as part of the geo query where possible
+          includeLocs: "dist.location"
+        }
+      });
+
+      // 2. Additional Sort (if not sorting by distance, which is default for geoNear)
+      // Note: geoNear sorts by distance by default. If user wants other sort, we append it.
+      if (sortBy !== 'distance') {
+        const sortStage = {};
+        sortStage[sortBy] = order === 'desc' ? -1 : 1;
+        pipeline.push({ $sort: sortStage });
+      }
+
+      // 3. Facet for Pagination and Total Count
+      pipeline.push({
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limitNum }]
+        }
+      });
+
+      const result = await Job.aggregate(pipeline);
+
+      jobs = result[0].data;
+      total = result[0].metadata[0] ? result[0].metadata[0].total : 0;
+
+    } else {
+      // Standard Find Query
+      if (location) {
+        matchQuery.$or = [
+          { 'location.city': { $regex: location, $options: 'i' } },
+          { 'location.state': { $regex: location, $options: 'i' } },
+          { 'location.country': { $regex: location, $options: 'i' } }
+        ];
+      }
+
+      const sortOptions = {};
+      sortOptions[sortBy] = order === 'desc' ? -1 : 1;
+
+      [jobs, total] = await Promise.all([
+        Job.find(matchQuery)
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limitNum)
+          .select('-__v'),
+        Job.countDocuments(matchQuery)
+      ]);
+    }
 
     res.json({
       jobs,
       pagination: {
         total,
-        page: Number(page),
-        pages: Math.ceil(total / limit),
-        limit: Number(limit)
+        page: pageNum,
+        pages: Math.ceil(total / limitNum),
+        limit: limitNum
       }
     });
+
   } catch (error) {
     console.error("Get jobs error:", error);
     res.status(500).json({
@@ -352,6 +478,21 @@ router.post("/:id/apply", auth, async (req, res) => {
 
     if (job.status !== 'active') {
       return res.status(400).json({ message: "This job is no longer active" });
+    }
+
+    // Check Industry Constraint
+    if (job.industry && job.industry.length > 0) {
+      const userIndustries = jobSeeker.jobSeekerProfile.industries || [];
+
+      const hasMatchingIndustry = userIndustries.some(uInd =>
+        job.industry.some(jInd => jInd.toLowerCase().trim() === uInd.toLowerCase().trim())
+      );
+
+      if (!hasMatchingIndustry) {
+        return res.status(403).json({
+          message: `This job requires one of the following industries: ${job.industry.join(', ')}. You can only apply to jobs matching your profile industries.`
+        });
+      }
     }
 
     // Check if already applied

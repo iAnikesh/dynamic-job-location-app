@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const JobSchema = new Schema({ 
+const JobSchema = new Schema({
   title: {
     type: String,
     required: true,
@@ -12,7 +12,7 @@ const JobSchema = new Schema({
     required: true
   },
   // company: String,
-  
+
   // Recruiter reference
   recruiterId: {
     type: Schema.Types.ObjectId,
@@ -21,7 +21,7 @@ const JobSchema = new Schema({
   },
   recruiterName: String, // Denormalized
   companyLogo: String, // Denormalized
-  
+
   // Job details
   jobType: {
     type: String,
@@ -32,9 +32,9 @@ const JobSchema = new Schema({
     type: String,
     enum: ['onsite', 'remote', 'hybrid']
   },
-  industry: String,
+  industry: [String],
   category: String,
-  
+
   // Requirements
   experienceRequired: {
     min: {
@@ -49,7 +49,7 @@ const JobSchema = new Schema({
   },
   educationRequired: String,
   skills: [String],
-  
+
   // Compensation
   salary: {
     min: Number,
@@ -64,7 +64,7 @@ const JobSchema = new Schema({
       default: 'yearly'
     }
   },
-  
+
   // Location (GeoJSON format)
   location: {
     type: {
@@ -86,7 +86,7 @@ const JobSchema = new Schema({
       default: false
     }
   },
-  
+
   // Job settings
   openings: {
     type: Number,
@@ -100,7 +100,7 @@ const JobSchema = new Schema({
     type: Number,
     default: 0
   },
-  
+
   // Status
   status: {
     type: String,
@@ -108,16 +108,16 @@ const JobSchema = new Schema({
     default: 'active'
   },
   expiresAt: Date,
-  
+
   // Application settings
   applicationDeadline: Date,
   applicationUrl: String,
-  
+
   // Additional info
   benefits: [String],
   responsibilities: [String],
   qualifications: [String],
-  
+
   // Metadata
   publishedAt: Date,
   closedAt: Date,
@@ -126,6 +126,10 @@ const JobSchema = new Schema({
     default: true
   },
   isFeatured: {
+    type: Boolean,
+    default: false
+  },
+  isUrgent: {
     type: Boolean,
     default: false
   },
