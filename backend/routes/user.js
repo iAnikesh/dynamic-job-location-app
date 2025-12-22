@@ -389,4 +389,155 @@ router.get("/location", auth, async (req, res) => {
   }
 });
 
+// Change password
+router.post("/change-password", auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Verify current password
+    const bcrypt = require("bcryptjs");
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    user.updatedAt = Date.now();
+
+    await user.save();
+
+    res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ message: "Failed to change password" });
+  }
+});
+
+// Request email change (send OTP)
+router.post("/request-email-change", auth, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+
+    if (!newEmail) {
+      return res.status(400).json({ message: "New email is required" });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if email already exists (case-insensitive)
+    const existingUser = await User.findOne({
+      email: { $regex: new RegExp(`^${newEmail}$`, 'i') },
+      _id: { $ne: user._id }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already in use" });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store OTP and new email temporarily
+    user.emailChangeOtp = otp;
+    user.emailChangeOtpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.pendingEmail = newEmail;
+
+    await user.save();
+
+    // Send OTP email
+    const sendEmail = require("../utils/sendEmail");
+    await sendEmail(
+      newEmail,
+      "Verify Your New Email Address",
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Email Change Verification</h2>
+          <p>You have requested to change your email address.</p>
+          <p>Your verification code is:</p>
+          <h1 style="background-color: #f0f0f0; padding: 20px; text-align: center; letter-spacing: 5px;">${otp}</h1>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this change, please ignore this email.</p>
+        </div>
+      `
+    );
+
+    res.json({ message: "OTP sent to new email address" });
+  } catch (error) {
+    console.error("Request email change error:", error);
+    res.status(500).json({ message: "Failed to send OTP" });
+  }
+});
+
+// Verify email change OTP
+router.post("/verify-email-change", auth, async (req, res) => {
+  try {
+    const { otp } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({ message: "OTP is required" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.emailChangeOtp || !user.emailChangeOtpExpiry || !user.pendingEmail) {
+      return res.status(400).json({ message: "No pending email change request" });
+    }
+
+    // Check if OTP expired
+    if (Date.now() > user.emailChangeOtpExpiry) {
+      user.emailChangeOtp = undefined;
+      user.emailChangeOtpExpiry = undefined;
+      user.pendingEmail = undefined;
+      await user.save();
+      return res.status(400).json({ message: "OTP has expired. Please request a new one" });
+    }
+
+    // Verify OTP
+    if (user.emailChangeOtp !== otp) {
+      return res.status(401).json({ message: "Invalid OTP" });
+    }
+
+    // Update email
+    user.email = user.pendingEmail;
+    user.emailChangeOtp = undefined;
+    user.emailChangeOtpExpiry = undefined;
+    user.pendingEmail = undefined;
+    user.updatedAt = Date.now();
+
+    await user.save();
+
+    res.json({ message: "Email changed successfully", email: user.email });
+  } catch (error) {
+    console.error("Verify email change error:", error);
+    res.status(500).json({ message: "Failed to verify OTP" });
+  }
+});
+
 module.exports = router;

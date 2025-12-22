@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { Search, MapPin, Briefcase, DollarSign, Clock, Building2, Filter, X, Navigation, Zap } from 'lucide-react';
+import { Search, MapPin, Briefcase, DollarSign, Clock, Building2, Filter, X, Navigation, Zap, Bookmark } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import GooglePlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-google-places-autocomplete';
+import { useSavedJobs } from '../hooks/useSavedJobs';
 
 
 const Jobs = () => {
@@ -70,6 +71,7 @@ const Jobs = () => {
     };
 
     const [locationValue, setLocationValue] = useState(null);
+    const { saveJob, unsaveJob, isSaved } = useSavedJobs();
 
     const handleLocationSelect = (val) => {
         setLocationValue(val);
@@ -187,6 +189,18 @@ const Jobs = () => {
                 toast.error("Unable to retrieve your location");
             }
         );
+    };
+
+    const handleSaveToggle = (e, job) => {
+        e.preventDefault(); // Prevent navigation to job detail
+        e.stopPropagation();
+        if (isSaved(job._id)) {
+            unsaveJob(job._id);
+            toast.success('Job removed from saved jobs');
+        } else {
+            saveJob(job);
+            toast.success('Job saved for later');
+        }
     };
 
     return (
@@ -436,8 +450,20 @@ const Jobs = () => {
                                 <Link
                                     key={job._id}
                                     to={`/jobs/${job._id}`}
-                                    className="block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-black dark:hover:border-white transition-all hover:shadow-lg p-6 group"
+                                    className="block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-black dark:hover:border-white transition-all hover:shadow-lg p-6 group relative"
                                 >
+                                    {user?.role === 'jobseeker' && (
+                                        <button
+                                            onClick={(e) => handleSaveToggle(e, job)}
+                                            className={`absolute top-4 right-4 p-2 rounded-lg border transition-colors z-10 ${isSaved(job._id)
+                                                ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-600 dark:text-yellow-400'
+                                                : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500'
+                                                }`}
+                                            title={isSaved(job._id) ? 'Unsave' : 'Save for later'}
+                                        >
+                                            <Bookmark size={16} fill={isSaved(job._id) ? 'currentColor' : 'none'} />
+                                        </button>
+                                    )}
                                     <div className="flex gap-4">
                                         <div className="flex-shrink-0">
                                             {job.companyLogo ? (
@@ -453,29 +479,39 @@ const Jobs = () => {
                                             )}
                                         </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h3 className="text-xl font-semibold text-black dark:text-white truncate">
+                                        <div className="flex-1 min-w-0 pr-8">
+                                            {/* Title and Badges */}
+                                            <div className="mb-2">
+                                                <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
                                                     {job.title}
                                                 </h3>
-                                                {job.industry && (
-                                                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
-                                                        {job.industry}
-                                                    </span>
-                                                )}
-                                                {job.isUrgent && (
-                                                    <span className="flex items-center gap-1 text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400 font-medium">
-                                                        <Zap size={12} />
-                                                        Urgent
-                                                    </span>
-                                                )}
+                                                <div className="flex flex-wrap gap-2">
+                                                    {job.industry && (
+                                                        <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
+                                                            {job.industry}
+                                                        </span>
+                                                    )}
+                                                    {job.isUrgent && (
+                                                        <span className="flex items-center gap-1 text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400 font-medium">
+                                                            <Zap size={12} />
+                                                            Urgent
+                                                        </span>
+                                                    )}
+                                                    {job.dist?.calculated && (
+                                                        <span className="flex items-center gap-1 text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded text-blue-600 dark:text-blue-400">
+                                                            <Navigation size={12} />
+                                                            {formatDistance(job.dist.calculated)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <p className="text-gray-600 dark:text-gray-400 mb-3">
                                                 {job.recruiterName}
                                             </p>
 
-                                            <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                            {/* Job Details */}
+                                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
                                                 <span className="flex items-center gap-1">
                                                     <MapPin size={16} />
                                                     {job.location?.city || 'Remote'}
@@ -492,14 +528,9 @@ const Jobs = () => {
                                                     <Clock size={16} />
                                                     {getTimeAgo(job.createdAt)}
                                                 </span>
-                                                {job.dist?.calculated && (
-                                                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                                                        <Navigation size={16} />
-                                                        {formatDistance(job.dist.calculated)}
-                                                    </span>
-                                                )}
                                             </div>
 
+                                            {/* Skills */}
                                             {job.skills && job.skills.length > 0 && (
                                                 <div className="flex flex-wrap gap-2">
                                                     {job.skills.slice(0, 5).map((skill, index) => (
@@ -545,9 +576,10 @@ const Jobs = () => {
                             </div>
                         )}
                     </>
-                )}
-            </div>
-        </div>
+                )
+                }
+            </div >
+        </div >
     );
 };
 

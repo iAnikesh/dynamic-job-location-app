@@ -120,6 +120,9 @@ const UserSchema = new Schema({
 
   resetOtp: String,
   resetOtpExpiry: Date,
+  emailChangeOtp: String,
+  emailChangeOtpExpiry: Date,
+  pendingEmail: String,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   lastLogin: Date,

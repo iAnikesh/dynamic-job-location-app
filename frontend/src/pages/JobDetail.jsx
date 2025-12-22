@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { MapPin, Briefcase, DollarSign, Clock, Building2, Users, ArrowLeft, Check, Star, Share2, AlertTriangle, ExternalLink, Hash, X } from 'lucide-react';
+import { MapPin, Briefcase, DollarSign, Clock, Building2, Users, ArrowLeft, Check, Star, Share2, AlertTriangle, ExternalLink, Hash, X, Bookmark } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import DOMPurify from 'dompurify';
+import { useSavedJobs } from '../hooks/useSavedJobs';
 
 const JobDetail = () => {
   const { id } = useParams();
@@ -20,6 +21,7 @@ const JobDetail = () => {
     coverLetter: '',
     expectedSalary: ''
   });
+  const { saveJob, unsaveJob, isSaved } = useSavedJobs();
 
   useEffect(() => {
     fetchJob();
@@ -79,6 +81,16 @@ const JobDetail = () => {
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success("Job link copied to clipboard!");
+  };
+
+  const handleSaveToggle = () => {
+    if (isSaved(job._id)) {
+      unsaveJob(job._id);
+      toast.success('Job removed from saved jobs');
+    } else {
+      saveJob(job);
+      toast.success('Job saved for later');
+    }
   };
 
   const formatSalary = (salary) => {
@@ -188,6 +200,18 @@ const JobDetail = () => {
                 </div>
 
                 <div className="flex gap-3">
+                  {user?.role === 'jobseeker' && (
+                    <button
+                      onClick={handleSaveToggle}
+                      className={`p-3 rounded-lg border transition-colors ${isSaved(job._id)
+                          ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-600 dark:text-yellow-400'
+                          : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
+                        }`}
+                      title={isSaved(job._id) ? 'Unsave Job' : 'Save Job'}
+                    >
+                      <Bookmark size={20} fill={isSaved(job._id) ? 'currentColor' : 'none'} />
+                    </button>
+                  )}
                   <button
                     onClick={handleShare}
                     className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
@@ -406,7 +430,7 @@ const JobDetail = () => {
                 <h4 className="font-semibold text-black dark:text-white mb-4">About the Company</h4>
                 <div className="flex items-center gap-3 mb-4">
                   {job.companyLogo ? (
-                    <img src={job.companyLogo} alt={job.recruiterName} className="w-10 h-10 rounded-full object-cover" />
+                    <img src={job.companyLogo} alt={job.recruiterName} className="w-10 h-10 rounded-full object-contain" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                       <Building2 size={20} className="text-gray-400" />

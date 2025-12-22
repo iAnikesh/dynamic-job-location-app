@@ -67,6 +67,9 @@ const Header = () => {
                                     {user.role === 'recruiter' && (
                                         <Link to="/post-job" className={isActive("/post-job")}>Post Job</Link>
                                     )}
+                                    {user.role === 'jobseeker' && (
+                                        <Link to="/saved-jobs" className={isActive("/saved-jobs")}>Saved Jobs</Link>
+                                    )}
                                     <Link to="/dashboard" className={isActive("/dashboard")}>Dashboard</Link>
                                 </>
                             )}
