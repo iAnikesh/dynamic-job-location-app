@@ -133,7 +133,13 @@ const JobSchema = new Schema({
     type: Boolean,
     default: false
   },
-  featuredUntil: Date
+  featuredUntil: Date,
+  isApproved: { type: Boolean, default: false },
+  approvedAt: Date,
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+  rejectionReason: String,
+  rejectedAt: Date,
+  rejectedBy: { type: Schema.Types.ObjectId, ref: 'Admin' }
 }, {
   timestamps: true
 });

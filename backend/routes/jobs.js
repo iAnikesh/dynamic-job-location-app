@@ -73,7 +73,9 @@ router.post("/create", auth, async (req, res) => {
       qualifications: Array.isArray(qualifications) ? qualifications : [],
       publishedAt: new Date(),
       status: 'active',
-      isUrgent: isUrgent || false
+      isUrgent: isUrgent || false,
+      isApproved: false,
+      status: 'draft'
     });
 
     await job.save();
@@ -197,7 +199,7 @@ router.get("/", async (req, res) => {
       salaryMax,
       sortBy = 'createdAt',
       order = 'desc',
-      isUrgent
+      isUrgent,
     } = req.query;
 
     const pageNum = Number(page);

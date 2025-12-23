@@ -128,8 +128,14 @@ const UserSchema = new Schema({
   lastLogin: Date,
   isActive: {
     type: Boolean,
-    default: true
-  }
+    default: true,
+  },
+  isApproved: { type: Boolean, default: false },
+  approvedAt: Date,
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+  rejectionReason: String,
+  rejectedAt: Date,
+  rejectedBy: { type: Schema.Types.ObjectId, ref: 'Admin' }
 });
 
 module.exports = mongoose.model("User", UserSchema);
