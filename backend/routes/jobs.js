@@ -207,7 +207,7 @@ router.get("/", async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Common Match Query (for non-geo fields)
-    const matchQuery = { status: 'active', isActive: true };
+    const matchQuery = { status: 'active', isActive: true, isApproved: true };
 
     if (search) {
       matchQuery.$or = [
@@ -333,6 +333,10 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    if (!job.isApproved && (!req.user || req.user.id !== job.recruiterId.toString())) {
+      return res.status(404).json({ message: "Job not found" });
+}
+
     // Increment views count
     job.viewsCount += 1;
     await job.save();
@@ -370,6 +374,12 @@ router.put("/:id", auth, async (req, res) => {
         job[key] = updates[key];
       }
     });
+
+    if (updates.title || updates.description || updates.requirements) {
+  job.isApproved = false;
+  job.status = 'draft';
+  // Notify admin of changes
+}
 
     await job.save();
 
@@ -465,6 +475,12 @@ router.post("/:id/apply", auth, async (req, res) => {
     if (req.user.role !== "jobseeker") {
       return res.status(403).json({ message: "Only job seekers can apply" });
     }
+
+    // if (!user.isApproved) {
+    //   return res.status(403).json({ 
+    //   message: "Your account is pending admin approval. Please wait for verification." 
+    // });
+    // }
 
     const jobSeeker = await User.findById(req.user.id);
     if (!jobSeeker.profileComplete) {

@@ -1,4 +1,4 @@
- // admin/routes/jobs.js
+// admin/routes/jobs.js
 const express = require("express");
 const adminAuth = require("../middleware/adminAuth");
 const Job = require("../../models/Jobs");
@@ -7,9 +7,9 @@ const router = express.Router();
 // Get all jobs with filters
 router.get("/", adminAuth, async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
+    const {
+      page = 1,
+      limit = 20,
       status,
       search,
       sortBy = 'createdAt',
@@ -17,12 +17,12 @@ router.get("/", adminAuth, async (req, res) => {
     } = req.query;
 
     const query = {};
-    
+
     if (status === 'pending') query.isApproved = false;
     if (status === 'approved') query.isApproved = true;
     if (status === 'active') query.status = 'active';
     if (status === 'closed') query.status = 'closed';
-    
+
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -63,7 +63,7 @@ router.get("/:id", adminAuth, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id)
       .populate('recruiterId', 'name email recruiterProfile');
-    
+
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
@@ -79,7 +79,7 @@ router.get("/:id", adminAuth, async (req, res) => {
 router.put("/:id/approve", adminAuth, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
-    
+
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
@@ -92,7 +92,7 @@ router.put("/:id/approve", adminAuth, async (req, res) => {
 
     // TODO: Notify recruiter
 
-    res.json({ 
+    res.json({
       message: "Job approved successfully",
       job: {
         id: job._id,
@@ -112,7 +112,7 @@ router.put("/:id/reject", adminAuth, async (req, res) => {
   try {
     const { reason } = req.body;
     const job = await Job.findById(req.params.id);
-    
+
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
@@ -126,7 +126,7 @@ router.put("/:id/reject", adminAuth, async (req, res) => {
 
     // TODO: Notify recruiter
 
-    res.json({ 
+    res.json({
       message: "Job rejected",
       job: {
         id: job._id,
@@ -144,7 +144,7 @@ router.put("/:id/reject", adminAuth, async (req, res) => {
 router.delete("/:id", adminAuth, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
-    
+
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
@@ -159,6 +159,42 @@ router.delete("/:id", adminAuth, async (req, res) => {
   } catch (error) {
     console.error("Delete job error:", error);
     res.status(500).json({ message: "Failed to delete job" });
+  }
+});
+
+// Toggle job active status
+router.put("/:id/toggle-active", adminAuth, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Toggle logic
+    job.isActive = !job.isActive;
+
+    // Sync status with active state if needed, but primary flag is isActive
+    if (job.isActive && job.status === 'closed') {
+      job.status = 'active';
+    } else if (!job.isActive && job.status === 'active') {
+      job.status = 'closed';
+    }
+
+    await job.save();
+
+    res.json({
+      message: `Job ${job.isActive ? 'activated' : 'deactivated'} successfully`,
+      job: {
+        id: job._id,
+        title: job.title,
+        isActive: job.isActive,
+        status: job.status
+      }
+    });
+  } catch (error) {
+    console.error("Toggle job status error:", error);
+    res.status(500).json({ message: "Failed to update job status" });
   }
 });
 

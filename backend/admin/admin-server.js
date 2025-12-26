@@ -9,11 +9,8 @@ const cors = require("cors");
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:5174",
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-  exposedHeaders: ["Set-Cookie"]
+  origin: process.env.ADMIN_CLIENT_URL || "http://localhost:5174",
+  credentials: true
 }));
 
 app.use(express.json());
@@ -23,9 +20,10 @@ app.use(cookieParser());
 // Debug middleware
 app.use((req, res, next) => {
   console.log(`[Admin Server] ${req.method} ${req.url}`);
-  if (req.body && Object.keys(req.body).length > 0) {
+  if (req.method !== 'GET' && req.body && Object.keys(req.body).length > 0) {
     console.log('Body keys:', Object.keys(req.body));
-  } else {
+  } else if (req.method !== 'GET') {
+    // Only log empty body for non-GET requests where a body is expected
     console.log('Body is empty or undefined');
   }
   next();
@@ -33,11 +31,13 @@ app.use((req, res, next) => {
 
 app.use('/uploads', express.static('../backend/uploads'));
 
+mongoose.set('bufferCommands', false);
 // Connect to same MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Admin Panel: MongoDB connected"))
   .catch((err) => console.log("Admin Panel DB Error:", err));
 
+console.log("Mongoose readyState:", mongoose.connection.readyState);
 // Admin Routes
 app.use("/api/admin/auth", require("./routes/auth"));
 app.use("/api/admin/users", require("./routes/users"));

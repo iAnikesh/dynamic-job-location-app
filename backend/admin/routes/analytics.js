@@ -7,6 +7,7 @@ const Application = require("../../models/Applications");
 const router = express.Router();
 
 // Get dashboard stats
+// Get dashboard stats
 router.get("/dashboard", adminAuth, async (req, res) => {
   try {
     const [
@@ -30,8 +31,8 @@ router.get("/dashboard", adminAuth, async (req, res) => {
       Job.countDocuments({ status: 'active' }),
       Job.countDocuments({ isApproved: false }),
       Application.countDocuments(),
-      Application.countDocuments({ 
-        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } 
+      Application.countDocuments({
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
       })
     ]);
 
@@ -119,6 +120,40 @@ router.get("/dashboard", adminAuth, async (req, res) => {
   } catch (error) {
     console.error("Get analytics error:", error);
     res.status(500).json({ message: "Failed to fetch analytics" });
+  }
+});
+
+// Get detailed analytics
+router.get("/detailed", adminAuth, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // Fetch consolidated stats
+    const [
+      usersByRole,
+      jobsByStatus,
+      applicationsByStatus
+    ] = await Promise.all([
+      User.aggregate([
+        { $group: { _id: "$role", count: { $sum: 1 } } }
+      ]),
+      Job.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ]),
+      Application.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ])
+    ]);
+
+    res.json({
+      usersByRole,
+      jobsByStatus,
+      applicationsByStatus
+    });
+  } catch (error) {
+    console.error("Detailed analytics error:", error);
+    res.status(500).json({ message: "Failed to fetch detailed analytics" });
   }
 });
 

@@ -26,12 +26,12 @@ router.get("/", adminAuth, async (req, res) => {
 
         const [applications, total] = await Promise.all([
             Application.find(query)
-                .populate('jobSeeker', 'name email username')
-                .populate('job', 'title location jobType')
+                .populate('jobSeekerId', 'name email username')
+                .populate('jobId', 'title location jobType')
                 .populate({
-                    path: 'job',
+                    path: 'jobId',
                     populate: {
-                        path: 'recruiter',
+                        path: 'recruiterId',
                         select: 'recruiterProfile.companyName'
                     }
                 })
@@ -60,12 +60,12 @@ router.get("/", adminAuth, async (req, res) => {
 router.get("/:id", adminAuth, async (req, res) => {
     try {
         const application = await Application.findById(req.params.id)
-            .populate('jobSeeker', 'name email username phone jobSeekerProfile')
-            .populate('job', 'title description location jobType salaryMin salaryMax')
+            .populate('jobSeekerId', 'name email username phone jobSeekerProfile')
+            .populate('jobId', 'title description location jobType salaryMin salaryMax')
             .populate({
-                path: 'job',
+                path: 'jobId',
                 populate: {
-                    path: 'recruiter',
+                    path: 'recruiterId',
                     select: 'recruiterProfile'
                 }
             });
