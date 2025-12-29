@@ -3,6 +3,9 @@ const express = require("express");
 const auth = require("../middleware/authMiddleware");
 const Application = require("../models/Applications");
 const Job = require("../models/Jobs");
+const { createMeeting } = require("../utils/googleMeet");
+const sendEmail = require("../utils/sendEmail");
+const { getInterviewEmailTemplate } = require("../utils/emailTemplates");
 const router = express.Router();
 
 // Check if user has applied to a job
@@ -63,6 +66,28 @@ router.get("/my", auth, async (req, res) => {
   }
 });
 
+// Get all interviews for logged-in recruiter
+router.get("/recruiter/interviews", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "recruiter") {
+      return res.status(403).json({ message: "Only recruiters can view interviews" });
+    }
+
+    const applications = await Application.find({
+      recruiterId: req.user.id,
+      status: 'interviewing'
+    })
+      .populate('jobId', 'title')
+      .populate('jobSeekerId', 'name email')
+      .sort({ updatedAt: -1 });
+
+    res.json({ applications });
+  } catch (error) {
+    console.error("Get interviews error:", error);
+    res.status(500).json({ message: "Failed to fetch interviews" });
+  }
+});
+
 // Update application status (Recruiter only)
 router.put("/:id/status", auth, async (req, res) => {
   try {
@@ -91,6 +116,37 @@ router.put("/:id/status", auth, async (req, res) => {
 
     if (status === 'viewed' && !application.viewedAt) {
       application.viewedAt = new Date();
+    }
+
+    // Generate Google Meet link if moving to interviewing
+    if (status === 'interviewing') {
+      try {
+        const meetingLink = await createMeeting();
+        application.interviews.push({
+          type: 'video',
+          meetingLink,
+          status: 'scheduled',
+          scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24h from now
+        });
+
+        // Send Email Notification
+        const emailSubject = `Invitation to Interview: ${application.jobTitle}`;
+        const scheduledDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // Same as above
+
+        const emailHtml = getInterviewEmailTemplate(
+          application.jobSeekerName,
+          application.jobTitle,
+          application.companyName,
+          meetingLink,
+          scheduledDate
+        );
+
+        await sendEmail(application.jobSeekerEmail, emailSubject, emailHtml);
+
+      } catch (meetError) {
+        console.error("Failed to generate meeting link:", meetError);
+        // We continue nicely, recruiter might see no link and can handle it manually if needed
+      }
     }
 
     await application.save();

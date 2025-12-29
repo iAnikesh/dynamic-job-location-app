@@ -14,7 +14,9 @@ import {
     Edit,
     Trash2,
     AlertCircle,
-    File
+    File,
+    Video,
+    Calendar
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -25,6 +27,7 @@ const Dashboard = () => {
 
     // Recruiter State
     const [postedJobs, setPostedJobs] = useState([]);
+    const [interviews, setInterviews] = useState([]);
     const [selectedJobId, setSelectedJobId] = useState(null); // For viewing applications
     const [jobApplications, setJobApplications] = useState([]);
     const [viewingApplication, setViewingApplication] = useState(null); // specific app details
@@ -42,6 +45,9 @@ const Dashboard = () => {
             if (user?.role === 'recruiter') {
                 const { data } = await axios.get('/api/jobs/my/posted');
                 setPostedJobs(data.jobs);
+
+                const interviewsRes = await axios.get('/api/applications/recruiter/interviews');
+                setInterviews(interviewsRes.data.applications);
             } else if (user?.role === 'jobseeker') {
                 const { data } = await axios.get('/api/applications/my');
                 setMyApplications(data.applications);
@@ -151,7 +157,8 @@ const Dashboard = () => {
 
                         {/* Main Content */}
                         <div className="lg:col-span-3 space-y-6">
-                            {/* Tabs */}
+
+                            {/* Tabs Header */}
                             <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
                                 <button
                                     onClick={() => { setActiveTab('overview'); setSelectedJobId(null); }}
@@ -161,6 +168,15 @@ const Dashboard = () => {
                                         }`}
                                 >
                                     Posted Jobs
+                                </button>
+                                <button
+                                    onClick={() => { setActiveTab('interviews'); setSelectedJobId(null); }}
+                                    className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'interviews'
+                                        ? 'border-black dark:border-white text-black dark:text-white'
+                                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                        }`}
+                                >
+                                    Interviews
                                 </button>
                                 {selectedJobId && (
                                     <button
@@ -174,6 +190,68 @@ const Dashboard = () => {
                                     </button>
                                 )}
                             </div>
+
+                            {activeTab === 'interviews' && (
+                                <div className="space-y-4">
+                                    <h2 className="text-xl font-bold mb-4">Scheduled Interviews</h2>
+                                    {interviews.length === 0 ? (
+                                        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+                                            <Video className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                                            <p className="text-gray-500">No interviews scheduled yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid gap-4">
+                                            {interviews.map(app => (
+                                                <div key={app._id} className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <div className="font-bold text-lg">{app.jobSeekerId?.name || 'Candidate'}</div>
+                                                            <div className="text-gray-500 text-sm mb-2">Applied for: {app.jobId?.title}</div>
+
+                                                            <div className="flex items-center gap-4 mt-3">
+                                                                {app.interviews && app.interviews.length > 0 && app.interviews[app.interviews.length - 1].meetingLink ? (
+                                                                    <a
+                                                                        href={app.interviews[app.interviews.length - 1].meetingLink}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                                                    >
+                                                                        <Video size={16} />
+                                                                        Join Google Meet
+                                                                    </a>
+                                                                ) : (
+                                                                    <span className="text-yellow-600 text-sm flex items-center gap-1">
+                                                                        <AlertCircle size={14} /> Link pending
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                                    <Calendar size={12} />
+                                                                    {app.interviews && app.interviews.length > 0 && app.interviews[app.interviews.length - 1].scheduledAt
+                                                                        ? new Date(app.interviews[app.interviews.length - 1].scheduledAt).toLocaleString()
+                                                                        : 'TBD'
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col items-end gap-2">
+                                                            <StatusBadge status={app.status} />
+                                                            <select
+                                                                value={app.status}
+                                                                onChange={(e) => handleUpdateStatus(app._id, e.target.value)}
+                                                                className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800"
+                                                            >
+                                                                <option value="interviewing">Interviewing</option>
+                                                                <option value="offered">Offered</option>
+                                                                <option value="rejected">Rejected</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {activeTab === 'overview' && (
                                 <div className="grid gap-4">
@@ -359,6 +437,17 @@ const Dashboard = () => {
                                                 </div>
 
                                                 <div className="flex items-center gap-4">
+                                                    {app.status === 'interviewing' && app.interviews && app.interviews.length > 0 && app.interviews[app.interviews.length - 1].meetingLink && (
+                                                        <a
+                                                            href={app.interviews[app.interviews.length - 1].meetingLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                                        >
+                                                            <Video size={16} />
+                                                            Join Interview
+                                                        </a>
+                                                    )}
                                                     <StatusBadge status={app.status} />
 
                                                     {['applied', 'viewed'].includes(app.status) && (
@@ -386,7 +475,7 @@ const Dashboard = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
