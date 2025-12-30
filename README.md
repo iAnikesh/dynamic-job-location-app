@@ -112,7 +112,7 @@ npm install
 # Create .env file
 cp .env.example .env
 
-Con	figure your frontend `.env`:
+Configure your frontend `.env`:
 VITE_API_URL=http://localhost:4000
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 
@@ -211,16 +211,6 @@ The application will be available at:
 - Interview scheduling alerts
 - Urgent job notifications for nearby candidates
 
-## 🚧 Roadmap
-
-- [ ] Advanced analytics dashboard
-- [ ] AI-powered job recommendations
-- [ ] Video interview platform integration
-- [ ] Skill assessment tests
-- [ ] Company reviews and ratings
-- [ ] Salary negotiation tools
-- [ ] Mobile applications (iOS/Android)
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:
@@ -231,16 +221,12 @@ Contributions are welcome! Please follow these steps:
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 👨‍💻 Author
 
-**Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+**Anikesh**
+- GitHub: [@iAnikesh](https://github.com/iAnikesh)
+- LinkedIn: [iAnikesh](https://linkedin.com/in/iAnikesh)
+- Email: hi@anikesh.dev
 
 ## 🙏 Acknowledgments
 
@@ -248,10 +234,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - MongoDB for database support
 - React community for excellent libraries
 - All contributors and testers
-
-## 📞 Support
-
-For support, email support@hiree.work or join our Slack channel.
 
 ---
 
